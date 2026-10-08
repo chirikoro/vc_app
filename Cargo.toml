@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+members = ["crates/vc-core", "crates/vc-gui"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+
+[workspace.dependencies]
+vc-core = { path = "crates/vc-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+
+# 配布用バイナリを小さく速く
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+# テスト/ベンチを release 相当の速度で回したいときは `cargo test --profile fastdev`
+[profile.fastdev]
+inherits = "dev"
+opt-level = 3

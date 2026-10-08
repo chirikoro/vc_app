@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  lint-and-test-linux:
+    name: Lint & test (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Install system libraries (ALSA for rodio, X11 for eframe)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libxkbcommon-dev libgtk-3-dev ffmpeg
+      - name: Format check
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace --profile fastdev
+      - name: Speed benchmark (informational)
+        run: cargo run -p vc-core --profile fastdev --bin vc-cli -- bench --seconds 30 --files 4
+
+  build-windows:
+    name: Build & test (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Test
+        run: cargo test --workspace --profile fastdev
+      - name: Build release
+        run: cargo build --release --workspace
+      - name: Show binary sizes
+        shell: pwsh
+        run: Get-ChildItem target/release/*.exe | Select-Object Name, @{n="MB";e={[math]::Round($_.Length/1MB,2)}}
+      - name: Upload executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: vc-app-windows-x64
+          path: |
+            target/release/vc-app.exe
+            target/release/vc-cli.exe
+          if-no-files-found: error
